@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 euclid = "0.22.14"
 image = "0.25.10"
+optimizer = "1.0.1"

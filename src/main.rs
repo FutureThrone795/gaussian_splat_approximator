@@ -5,6 +5,8 @@ use crate::splat::Splat;
 
 mod splat;
 mod util;
+mod optimize_splat;
+mod splat_trial_params;
 
 fn main() {
     let img_sizes = [5_u32, 20, 100, 1000];
@@ -24,8 +26,8 @@ fn main() {
     };
 
     for (img, size) in &mut imgs {
-        red_splat.apply(img).expect("Failed to apply red_splat");
-        blue_splat.apply(img).expect("Failed to apply blue_splat");
+        red_splat.apply(img);
+        blue_splat.apply(img);
 
         ConvertBuffer::<RgbImage>::convert(img).save(format!("output{0}x{0}.png", size)).expect("Failed to save image");
     }

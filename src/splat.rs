@@ -6,7 +6,7 @@ use crate::util::{Unit, to_normalized_pixels_mut};
 pub struct Splat {
     pub color: Rgb<f32>,
     pub alpha: f32,
-    pub transform: Transform2D<f32, Unit, Unit>
+    pub inverse_transform: Transform2D<f32, Unit, Unit>
 }
 
 #[derive(Debug)]
@@ -16,15 +16,8 @@ pub enum SplatError {
 
 impl Splat {
     pub fn apply(&self, img: &mut Rgb32FImage) -> Result<(), SplatError> {
-        let inverse = match self.transform.inverse() {
-            Some(mat) => mat,
-            None => {
-                return Err(SplatError::NotInversible);
-            }
-        };
-
         for (pos, pixel) in to_normalized_pixels_mut(img) {
-            let transformed_pos = inverse.transform_point(pos);
+            let transformed_pos = self.inverse_transform.transform_point(pos);
 
             let dist_from_origin = transformed_pos.distance_to(point2(0.0, 0.0));
             let gaussian_factor = f32::exp(-dist_from_origin.powi(2));

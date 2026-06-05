@@ -1,0 +1,8 @@
+[package]
+name = "gaussian_splat_approximator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+euclid = "0.22.14"
+image = "0.25.10"

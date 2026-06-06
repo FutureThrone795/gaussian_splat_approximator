@@ -1,22 +1,52 @@
-use std::fmt::Error;
+use argmin::{core::{CostFunction, Error, Executor}, solver::{self, neldermead::NelderMead}};
+use euclid::{Transform2D, vec2};
+use image::{Rgb, Rgb32FImage};
 
-use image::{Rgb32FImage};
-use optimizer::{Direction, Study, prelude::Trial};
+use crate::{splat::Splat, util::Unit};
 
-use crate::splat::Splat;
-use crate::splat_trial_params::SplatTrialParams;
+struct OptimizeSplat<'a, 'b> {
+    goal_img: &'a Rgb32FImage,
+    curr_img: &'b Rgb32FImage
+}
 
-pub fn optimize_splat(img: &Rgb32FImage) -> Splat {
-    let study: Study<f32> = Study::new(Direction::Minimize);
+impl<'a, 'b> CostFunction for OptimizeSplat<'a, 'b> {
+    type Param = Vec<f32>;
+    type Output = f32;
 
-    let splat_params = SplatTrialParams::new();
+    fn cost(&self, param: &Vec<f32>) -> Result<f32, Error> {
+        return Ok(Splat::from_indexable(param).error(self.goal_img, self.curr_img));
+    }
+}
 
-    study.optimize(50, |trial: &mut Trial| {
-        let splat = splat_params.suggest_splat(trial);
+/// Returns (Splat, error)
+pub fn optimize_splat(goal_img: &Rgb32FImage, curr_img: &Rgb32FImage, n_trials: u64) -> (Splat, f32) {
+    let init_splat = Splat::initialize_randomly();
+    let init_splat_arr = init_splat.to_array();
+    let step = 0.2;
 
-        return Ok::<f32, Error>(splat.error(img));
-    }).unwrap();
+    let mut simplex: Vec<Vec<f32>> = vec![Vec::from(init_splat_arr)];
+    for (i, init_val) in init_splat_arr.iter().enumerate() {
+        let mut point = Vec::<f32>::from(init_splat_arr);
+        point[i] += step;
 
-    let best = study.best_trial().unwrap();
-    return splat_params.best_splat(&best);
+        simplex.push(point);
+    }
+
+    let solver = NelderMead::new(simplex);
+
+    let problem = OptimizeSplat {
+        goal_img,
+        curr_img
+    };
+
+    let result = Executor::new(problem, solver)
+        .configure(|state| state.max_iters(n_trials))
+        .run()
+        .expect("Failed to run the Splat optimizer");
+
+    let best_vals = result.state().best_param.as_ref().unwrap();
+    let best_splat = Splat::from_indexable(best_vals);
+    let best_error = result.state().best_cost;
+
+    return (best_splat, best_error);
 }

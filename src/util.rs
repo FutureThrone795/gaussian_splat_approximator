@@ -30,3 +30,20 @@ pub fn to_normalized_pixels(img: &Rgb32FImage) -> impl Iterator<Item = (Point2D<
             return (point2::<f32, Unit>(x_normalized, y_normalized), pixel);
     });
 }
+
+pub fn to_normalized_pixels_zipped<'a, 'b>(img1: &'a Rgb32FImage, img2: &'b Rgb32FImage) -> impl Iterator<Item = (Point2D<f32, Unit>, &'a Rgb<f32>, &'b Rgb<f32>)> {
+    if img1.dimensions() != img2.dimensions() {
+        panic!("to_normalized_pixels_zipped called with mismatched image dimensions");
+    }
+    
+    let width = img1.width() as f32;
+    let height = img1.height() as f32;
+
+    return img1.enumerate_pixels().zip(img2.pixels()).map(
+        move |((x, y, pixel1), pixel2)| {
+            let x_normalized = (x as f32 + 0.5) / width;
+            let y_normalized = (y as f32 + 0.5) / height;
+
+            return (point2::<f32, Unit>(x_normalized, y_normalized), pixel1, pixel2);
+    });
+}

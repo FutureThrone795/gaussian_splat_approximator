@@ -1,34 +1,39 @@
-use euclid::{Transform2D, vec2};
-use image::{Rgb, Rgb32FImage, RgbImage, buffer::ConvertBuffer};
+use image::{ImageReader, Rgb32FImage, RgbImage, buffer::ConvertBuffer};
 
-use crate::splat::Splat;
+use crate::{optimize_splat::optimize_splat};
 
 mod splat;
 mod util;
 mod optimize_splat;
-mod splat_trial_params;
 
 fn main() {
-    let img_sizes = [5_u32, 20, 100, 1000];
+    let goal_img = ImageReader::open("src/cropped_2401_small.png")
+        .expect("Unable to get the requested image")
+        .decode()
+        .expect("Unable to decode the requested image")
+        .to_rgb32f();
 
-    let mut imgs: Vec<(Rgb32FImage, u32)> = img_sizes.iter().map(|x| (Rgb32FImage::new(*x, *x), *x)).collect();
+    let mut curr_img = Rgb32FImage::new(goal_img.width(), goal_img.height());
 
-    let red_splat = Splat {
-        color: Rgb([1.0, 0.0, 0.0]),
-        alpha: 1.0,
-        inverse_transform: Transform2D::identity().then_scale(0.1, 0.2).then_rotate(euclid::Angle { radians: 0.5 }).then_translate(vec2(0.5, 0.5)).inverse().unwrap()
-    };
+    let mut big_output_img = Rgb32FImage::new(1000, 1000);
 
-    let blue_splat = Splat {
-        color: Rgb([0.0, 0.2, 1.0]),
-        alpha: 0.5,
-        inverse_transform: Transform2D::identity().then_scale(0.4, 0.2).then_rotate(euclid::Angle { radians: 0.25 }).then_translate(vec2(0.75, 0.75)).inverse().unwrap()
-    };
+    const SPLAT_COUNT: usize = 100;
+    const TRIALS_PER_SPLAT: u64 = 1000;
+    const INITIAL_VALUES_PER_SPLAT: u64 = 8;
 
-    for (img, size) in &mut imgs {
-        red_splat.apply(img);
-        blue_splat.apply(img);
+    for i in 0..SPLAT_COUNT {
+        let optimizations = (0..INITIAL_VALUES_PER_SPLAT).into_iter().map(|_| optimize_splat(&goal_img, &curr_img, TRIALS_PER_SPLAT));
 
-        ConvertBuffer::<RgbImage>::convert(img).save(format!("output{0}x{0}.png", size)).expect("Failed to save image");
+        let best_optimization = optimizations.min_by(|x, y| x.1.total_cmp(&y.1)).unwrap();
+
+        let best_splat = best_optimization.0;
+
+        best_splat.apply(&mut curr_img);
+        best_splat.apply(&mut big_output_img);
+        ConvertBuffer::<RgbImage>::convert(&curr_img).save("progress_img.png").expect("Failed to save image");
+        ConvertBuffer::<RgbImage>::convert(&big_output_img).save("big_output_img.png").expect("Failed to save image");
+        println!("Completed Splat {}/{}", i + 1, SPLAT_COUNT)
     }
+
+    ConvertBuffer::<RgbImage>::convert(&curr_img).save("output.png").expect("Failed to save image");
 }
